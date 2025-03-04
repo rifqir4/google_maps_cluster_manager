@@ -17,9 +17,11 @@ class DbscanClustering<T extends ClusterItem> {
   final DistUtils distUtils = DistUtils();
 
   List<int> clusters;
+  double pixelRadius = 0;
 
   List<Cluster<T>> run() {
     var clusterId = 0;
+    pixelRadius = distUtils.calculateEpsilonInPixel(radius, zoomLevel);
 
     for (var i = 0; i < points.length; i++) {
       if (clusters[i] != 0) {
@@ -47,7 +49,7 @@ class DbscanClustering<T extends ClusterItem> {
         points[j].location,
         zoomLevel,
       );
-      if (distance <= radius) {
+      if (distance <= pixelRadius) {
         neighbors.add(j);
       }
     }
