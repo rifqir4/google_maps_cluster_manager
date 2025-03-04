@@ -19,6 +19,13 @@ class MaxDistParams {
   final double epsilon;
 }
 
+class DbScanParams {
+  DbScanParams(this.radius, this.minPoints);
+
+  final double radius;
+  final int minPoints;
+}
+
 extension _Add on ScreenCoordinate {
   ScreenCoordinate add({int x = 0, int y = 0}) =>
       ScreenCoordinate(x: this.x + x, y: this.y + y);
@@ -34,6 +41,7 @@ class ClusterManager<T extends ClusterItem> {
     this.maxItemsForMaxDistAlgo = 200,
     this.clusterAlgorithm = ClusterAlgorithm.geoHash,
     this.maxDistParams,
+    this.dbScanParams,
     this.stopClusteringZoom,
     EdgeInsets? padding,
     double? devicePixelRatio,
@@ -74,6 +82,8 @@ class ClusterManager<T extends ClusterItem> {
   final ClusterAlgorithm clusterAlgorithm;
 
   final MaxDistParams? maxDistParams;
+
+  final DbScanParams? dbScanParams;
 
   /// Zoom level to stop cluster rendering
   final double? stopClusteringZoom;
@@ -299,8 +309,8 @@ class ClusterManager<T extends ClusterItem> {
   ) {
     final scanner = DbscanClustering<T>(
       points: inputItems,
-      radius: 150,
-      minPts: 2,
+      radius: dbScanParams?.radius ?? 10,
+      minPts: dbScanParams?.minPoints ?? 2,
       zoomLevel: _getZoomLevel(zoom),
     );
 
