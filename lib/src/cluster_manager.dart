@@ -6,10 +6,12 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart';
+import 'package:google_maps_cluster_manager_2/src/dbscan_clustering.dart';
 import 'package:google_maps_cluster_manager_2/src/max_dist_clustering.dart';
-import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart' hide Cluster;
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart'
+    hide Cluster;
 
-enum ClusterAlgorithm { geoHash, maxDist }
+enum ClusterAlgorithm { geoHash, maxDist, dbscan }
 
 class MaxDistParams {
   MaxDistParams(this.epsilon);
@@ -112,7 +114,8 @@ class ClusterManager<T extends ClusterItem> {
   Future<void> _updateClusters() async {
     final mapMarkers = await getMarkers();
 
-    final markers = Set<Marker>.from(await Future.wait(mapMarkers.map(markerBuilder)));
+    final markers =
+        Set<Marker>.from(await Future.wait(mapMarkers.map(markerBuilder)));
 
     updateMarkers(markers);
   }
@@ -137,7 +140,7 @@ class ClusterManager<T extends ClusterItem> {
     }
   }
 
-    Future<LatLngBounds> _addPadding(LatLngBounds mapBounds) async {
+  Future<LatLngBounds> _addPadding(LatLngBounds mapBounds) async {
     final northEastL = mapBounds.northeast;
     final southWestL = mapBounds.southwest;
 
@@ -146,8 +149,10 @@ class ClusterManager<T extends ClusterItem> {
     }
 
     final [northEastC, southWestC] = await Future.wait([
-      GoogleMapsFlutterPlatform.instance.getScreenCoordinate(northEastL, mapId: _mapId!),
-      GoogleMapsFlutterPlatform.instance.getScreenCoordinate(southWestL, mapId: _mapId!),
+      GoogleMapsFlutterPlatform.instance
+          .getScreenCoordinate(northEastL, mapId: _mapId!),
+      GoogleMapsFlutterPlatform.instance
+          .getScreenCoordinate(southWestL, mapId: _mapId!),
     ]);
 
     final [northEastP, southWestP] = await Future.wait([
@@ -173,7 +178,8 @@ class ClusterManager<T extends ClusterItem> {
   Future<List<Cluster<T>>> getMarkers() async {
     if (_mapId == null) return List.empty();
 
-    final mapBounds = await GoogleMapsFlutterPlatform.instance.getVisibleRegion(mapId: _mapId!);
+    final mapBounds = await GoogleMapsFlutterPlatform.instance
+        .getVisibleRegion(mapId: _mapId!);
 
     final paddedBounds = await _addPadding(mapBounds);
 
@@ -192,9 +198,16 @@ class ClusterManager<T extends ClusterItem> {
 
     List<Cluster<T>> markers;
 
-    if (clusterAlgorithm == ClusterAlgorithm.geoHash || visibleItems.length >= maxItemsForMaxDistAlgo) {
+    if (clusterAlgorithm == ClusterAlgorithm.geoHash ||
+        visibleItems.length >= maxItemsForMaxDistAlgo) {
       final level = _findLevel(levels);
-      markers = _computeClusters(visibleItems, List.empty(growable: true), level: level);
+      markers = _computeClusters(
+        visibleItems,
+        List.empty(growable: true),
+        level: level,
+      );
+    } else if (clusterAlgorithm == ClusterAlgorithm.dbscan) {
+      markers = _computeClustersDbscan(visibleItems, _zoom);
     } else {
       markers = _computeClustersWithMaxDist(visibleItems, _zoom);
     }
@@ -206,20 +219,25 @@ class ClusterManager<T extends ClusterItem> {
     // Bounds that cross the date line expand compared to their difference with the date line
     var lng = 0.0;
     if (bounds.northeast.longitude < bounds.southwest.longitude) {
-      lng = extraPercent * ((180.0 - bounds.southwest.longitude) + (bounds.northeast.longitude + 180));
+      lng = extraPercent *
+          ((180.0 - bounds.southwest.longitude) +
+              (bounds.northeast.longitude + 180));
     } else {
-      lng = extraPercent * (bounds.northeast.longitude - bounds.southwest.longitude);
+      lng = extraPercent *
+          (bounds.northeast.longitude - bounds.southwest.longitude);
     }
 
     // Latitudes expanded beyond +/- 90 are automatically clamped by LatLng
-    final lat = extraPercent * (bounds.northeast.latitude - bounds.southwest.latitude);
+    final lat =
+        extraPercent * (bounds.northeast.latitude - bounds.southwest.latitude);
 
     final eLng = (bounds.northeast.longitude + lng).clamp(-_maxLng, _maxLng);
     final wLng = (bounds.southwest.longitude - lng).clamp(-_maxLng, _maxLng);
 
     return LatLngBounds(
       southwest: LatLng(bounds.southwest.latitude - lat, wLng),
-      northeast: LatLng(bounds.northeast.latitude + lat, lng != 0 ? eLng : _maxLng),
+      northeast:
+          LatLng(bounds.northeast.latitude + lat, lng != 0 ? eLng : _maxLng),
     );
   }
 
@@ -243,7 +261,10 @@ class ClusterManager<T extends ClusterItem> {
     return 1;
   }
 
-  List<Cluster<T>> _computeClustersWithMaxDist(List<T> inputItems, double zoom) {
+  List<Cluster<T>> _computeClustersWithMaxDist(
+    List<T> inputItems,
+    double zoom,
+  ) {
     final scanner = MaxDistClustering<T>(
       epsilon: maxDistParams?.epsilon ?? 20,
     );
@@ -251,20 +272,43 @@ class ClusterManager<T extends ClusterItem> {
     return scanner.run(inputItems, _getZoomLevel(zoom));
   }
 
-  List<Cluster<T>> _computeClusters(List<T> inputItems, List<Cluster<T>> markerItems, {int level = 5}) {
+  List<Cluster<T>> _computeClusters(
+    List<T> inputItems,
+    List<Cluster<T>> markerItems, {
+    int level = 5,
+  }) {
     if (inputItems.isEmpty) return markerItems;
     final nextGeohash = inputItems[0].geohash.substring(0, level);
 
-    final items = inputItems.where((p) => p.geohash.substring(0, level) == nextGeohash).toList();
+    final items = inputItems
+        .where((p) => p.geohash.substring(0, level) == nextGeohash)
+        .toList();
 
     markerItems.add(Cluster<T>.fromItems(items));
 
-    final newInputList = List<T>.from(inputItems.where((i) => i.geohash.substring(0, level) != nextGeohash));
+    final newInputList = List<T>.from(
+      inputItems.where((i) => i.geohash.substring(0, level) != nextGeohash),
+    );
 
     return _computeClusters(newInputList, markerItems, level: level);
   }
 
-  static Future<Marker> Function(Cluster) get _basicMarkerBuilder => (cluster) async {
+  List<Cluster<T>> _computeClustersDbscan(
+    List<T> inputItems,
+    double zoom,
+  ) {
+    final scanner = DbscanClustering<T>(
+      points: inputItems,
+      radius: 150,
+      minPts: 2,
+      zoomLevel: _getZoomLevel(zoom),
+    );
+
+    return scanner.run();
+  }
+
+  static Future<Marker> Function(Cluster) get _basicMarkerBuilder =>
+      (cluster) async {
         return Marker(
           markerId: MarkerId(cluster.getId()),
           position: cluster.location,
@@ -280,7 +324,10 @@ class ClusterManager<T extends ClusterItem> {
         );
       };
 
-  static Future<BitmapDescriptor> _getBasicClusterBitmap(int size, {String? text}) async {
+  static Future<BitmapDescriptor> _getBasicClusterBitmap(
+    int size, {
+    String? text,
+  }) async {
     final pictureRecorder = PictureRecorder();
     final canvas = Canvas(pictureRecorder);
     final paint1 = Paint()..color = Colors.red;
@@ -291,7 +338,11 @@ class ClusterManager<T extends ClusterItem> {
       final painter = TextPainter(textDirection: TextDirection.ltr)
         ..text = TextSpan(
           text: text,
-          style: TextStyle(fontSize: size / 3, color: Colors.white, fontWeight: FontWeight.normal),
+          style: TextStyle(
+            fontSize: size / 3,
+            color: Colors.white,
+            fontWeight: FontWeight.normal,
+          ),
         )
         ..layout();
 
