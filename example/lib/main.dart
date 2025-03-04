@@ -5,7 +5,8 @@ import 'package:example/place.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart';
+import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart'
+    as cm;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 void main() => runApp(MyApp());
@@ -29,22 +30,41 @@ class MapSample extends StatefulWidget {
 }
 
 class MapSampleState extends State<MapSample> {
-  late ClusterManager _manager;
+  late cm.ClusterManager _manager;
 
   Completer<GoogleMapController> _controller = Completer();
 
   Set<Marker> markers = Set();
 
-  final CameraPosition _parisCameraPosition = CameraPosition(target: LatLng(48.856613, 2.352222), zoom: 12.0);
+  final CameraPosition _parisCameraPosition =
+      CameraPosition(target: LatLng(48.856613, 2.352222), zoom: 12.0);
 
   List<Place> items = [
-    for (int i = 0; i < 10; i++) Place(name: 'Place $i', latLng: LatLng(48.848200 + i * 0.001, 2.319124 + i * 0.001)),
     for (int i = 0; i < 10; i++)
-      Place(name: 'Restaurant $i', isClosed: i % 2 == 0, latLng: LatLng(48.858265 - i * 0.001, 2.350107 + i * 0.001)),
-    for (int i = 0; i < 10; i++) Place(name: 'Bar $i', latLng: LatLng(48.858265 + i * 0.01, 2.350107 - i * 0.01)),
-    for (int i = 0; i < 10; i++) Place(name: 'Hotel $i', latLng: LatLng(48.858265 - i * 0.1, 2.350107 - i * 0.01)),
-    for (int i = 0; i < 10; i++) Place(name: 'Test $i', latLng: LatLng(66.160507 + i * 0.1, -153.369141 + i * 0.1)),
-    for (int i = 0; i < 10; i++) Place(name: 'Test2 $i', latLng: LatLng(-36.848461 + i * 1, 169.763336 + i * 1)),
+      Place(
+          name: 'Place $i',
+          latLng: LatLng(48.848200 + i * 0.001, 2.319124 + i * 0.001)),
+    for (int i = 0; i < 10; i++)
+      Place(
+          name: 'Restaurant $i',
+          isClosed: i % 2 == 0,
+          latLng: LatLng(48.858265 - i * 0.001, 2.350107 + i * 0.001)),
+    for (int i = 0; i < 10; i++)
+      Place(
+          name: 'Bar $i',
+          latLng: LatLng(48.858265 + i * 0.01, 2.350107 - i * 0.01)),
+    for (int i = 0; i < 10; i++)
+      Place(
+          name: 'Hotel $i',
+          latLng: LatLng(48.858265 - i * 0.1, 2.350107 - i * 0.01)),
+    for (int i = 0; i < 10; i++)
+      Place(
+          name: 'Test $i',
+          latLng: LatLng(66.160507 + i * 0.1, -153.369141 + i * 0.1)),
+    for (int i = 0; i < 10; i++)
+      Place(
+          name: 'Test2 $i',
+          latLng: LatLng(-36.848461 + i * 1, 169.763336 + i * 1)),
   ];
 
   @override
@@ -53,8 +73,8 @@ class MapSampleState extends State<MapSample> {
     super.initState();
   }
 
-  ClusterManager _initClusterManager() {
-    return ClusterManager<Place>(
+  cm.ClusterManager _initClusterManager() {
+    return cm.ClusterManager<Place>(
       items,
       _updateMarkers,
       markerBuilder: _markerBuilder,
@@ -85,7 +105,9 @@ class MapSampleState extends State<MapSample> {
         onPressed: () {
           _manager.setItems(<Place>[
             for (int i = 0; i < 30; i++)
-              Place(name: 'New Place ${DateTime.now()} $i', latLng: LatLng(48.858265 + i * 0.01, 2.350107))
+              Place(
+                  name: 'New Place ${DateTime.now()} $i',
+                  latLng: LatLng(48.858265 + i * 0.01, 2.350107))
           ]);
         },
         child: Icon(Icons.update),
@@ -93,7 +115,8 @@ class MapSampleState extends State<MapSample> {
     );
   }
 
-  Future<Marker> Function(Cluster<Place>) get _markerBuilder => (cluster) async {
+  Future<Marker> Function(cm.Cluster<Place>) get _markerBuilder =>
+      (cluster) async {
         return Marker(
           markerId: MarkerId(cluster.getId()),
           position: cluster.location,
@@ -122,7 +145,10 @@ class MapSampleState extends State<MapSample> {
       TextPainter painter = TextPainter(textDirection: TextDirection.ltr);
       painter.text = TextSpan(
         text: text,
-        style: TextStyle(fontSize: size / 3, color: Colors.white, fontWeight: FontWeight.normal),
+        style: TextStyle(
+            fontSize: size / 3,
+            color: Colors.white,
+            fontWeight: FontWeight.normal),
       );
       painter.layout();
       painter.paint(
