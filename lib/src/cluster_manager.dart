@@ -188,19 +188,22 @@ class ClusterManager<T extends ClusterItem> {
   Future<List<Cluster<T>>> getMarkers() async {
     if (_mapId == null) return List.empty();
 
-    final mapBounds = await GoogleMapsFlutterPlatform.instance
-        .getVisibleRegion(mapId: _mapId!);
+    ///DISABLE VISIBLE LOGIC
 
-    final paddedBounds = await _addPadding(mapBounds);
+    // final mapBounds = await GoogleMapsFlutterPlatform.instance
+    //     .getVisibleRegion(mapId: _mapId!);
 
-    final inflatedBounds = switch (clusterAlgorithm) {
-      ClusterAlgorithm.geoHash => _inflateBounds(paddedBounds),
-      _ => paddedBounds,
-    };
+    // final paddedBounds = await _addPadding(mapBounds);
 
-    final visibleItems = items.where((i) {
-      return inflatedBounds.contains(i.location);
-    }).toList();
+    // final inflatedBounds = switch (clusterAlgorithm) {
+    //   ClusterAlgorithm.geoHash => _inflateBounds(paddedBounds),
+    //   _ => paddedBounds,
+    // };
+
+    // final visibleItems = items.where((i) {
+    //   return inflatedBounds.contains(i.location);
+    // }).toList();
+    final visibleItems = items.toList();
 
     if (stopClusteringZoom != null && _zoom >= stopClusteringZoom!) {
       return visibleItems.map((i) => Cluster<T>.fromItems([i])).toList();
