@@ -124,9 +124,26 @@ class ClusterManager<T extends ClusterItem> {
   Future<void> _updateClusters() async {
     final mapMarkers = await getMarkers();
 
-    final markers =
-        Set<Marker>.from(await Future.wait(mapMarkers.map(markerBuilder)));
+    final mapBounds = await GoogleMapsFlutterPlatform.instance
+        .getVisibleRegion(mapId: _mapId!);
 
+    final paddedBounds = await _addPadding(mapBounds);
+
+    final inflatedBounds = switch (clusterAlgorithm) {
+      ClusterAlgorithm.geoHash => _inflateBounds(paddedBounds),
+      _ => paddedBounds,
+    };
+
+    final result = await Future.wait(
+      mapMarkers.map((e) {
+        if (inflatedBounds.contains(e.location)) {
+          return markerBuilder(e);
+        }
+        return _basicMarkerBuilder(e);
+      }),
+    );
+
+    final markers = Set<Marker>.from(result);
     updateMarkers(markers);
   }
 
